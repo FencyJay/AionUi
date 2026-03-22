@@ -13,7 +13,7 @@
 import type { ChildProcess, SpawnOptions } from 'child_process';
 import { execFile as execFileCb, execFileSync, spawn } from 'child_process';
 import { promisify } from 'util';
-import { promises as fs } from 'fs';
+import { existsSync, promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import {
@@ -25,6 +25,7 @@ import {
 import {
   findSuitableNodeBin,
   getEnhancedEnv,
+  getNpxCacheDir,
   getWindowsShellExecutionOptions,
   resolveNpxPath,
 } from '@process/utils/shellEnv';
@@ -34,6 +35,84 @@ const execFile = promisify(execFileCb);
 
 /** Enable ACP performance diagnostics via ACP_PERF=1 */
 export const ACP_PERF_LOG = process.env.ACP_PERF === '1';
+
+function prependWindowsPathEntry(pathValue: string | undefined, entry: string): string {
+  if (!pathValue) return entry;
+  const entries = pathValue.split(';').filter(Boolean);
+  return entries.includes(entry) ? pathValue : `${entry};${pathValue}`;
+}
+
+export function normalizeWindowsShellCommand(command: string, env: Record<string, string | undefined>): string {
+  const trimmed = command.trim();
+  const quotedCommandMatch = trimmed.match(/^"([^"]+)"(?:\s+(.*))?$/);
+  const commandToken = quotedCommandMatch?.[1] ?? trimmed;
+  const trailingArgs = quotedCommandMatch?.[2]?.trim();
+
+  if (path.win32.isAbsolute(commandToken)) {
+    const commandDir = path.win32.dirname(commandToken);
+    env.PATH = prependWindowsPathEntry(env.PATH, commandDir);
+    const bareCommand = path.win32.basename(commandToken);
+    return trailingArgs ? `${bareCommand} ${trailingArgs}` : bareCommand;
+  }
+
+  return trimmed;
+}
+
+function createWindowsShellCommand(command: string, env: Record<string, string | undefined>): string {
+  return `chcp 65001 >nul && ${normalizeWindowsShellCommand(command, env)}`;
+}
+
+function getNpmCommandFromNpx(npxCommand: string): string {
+  const normalized = npxCommand.trim();
+  if (/npx\.cmd$/i.test(normalized)) return normalized.replace(/npx\.cmd$/i, 'npm.cmd');
+  if (/npx$/i.test(normalized)) return normalized.replace(/npx$/i, 'npm');
+  return normalized.replace(/npx/i, 'npm');
+}
+
+function getNpxPackageBinaryName(npxPackage: string): string {
+  if (npxPackage === CODEX_ACP_NPX_PACKAGE) return 'codex-acp.cmd';
+  if (npxPackage === CLAUDE_ACP_NPX_PACKAGE) return 'claude-agent-acp.cmd';
+  if (npxPackage === CODEBUDDY_ACP_NPX_PACKAGE) return 'codebuddy.cmd';
+  const packageName = npxPackage.split('@')[0] || npxPackage;
+  const slashIndex = packageName.lastIndexOf('/');
+  const bareName = slashIndex >= 0 ? packageName.slice(slashIndex + 1) : packageName;
+  return `${bareName}.cmd`;
+}
+
+async function installWindowsNpxBridge(
+  backend: string,
+  npxPackage: string,
+  npxCommand: string,
+  cleanEnv: Record<string, string | undefined>,
+  preferOffline: boolean
+): Promise<string> {
+  const packageVersion = npxPackage.replace(/^.*@(?=\d)/, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const installDir = path.join(getNpxCacheDir(), 'aionui-acp', backend, packageVersion || 'latest');
+  const npmCommand = normalizeWindowsShellCommand(getNpmCommandFromNpx(npxCommand), cleanEnv);
+  const installArgs = [
+    'install',
+    '--no-save',
+    '--prefix',
+    installDir,
+    npxPackage,
+    ...(preferOffline ? ['--prefer-offline'] : []),
+  ];
+
+  await fs.mkdir(installDir, { recursive: true });
+  await execFile(npmCommand, installArgs, {
+    env: cleanEnv,
+    timeout: 120000,
+    windowsHide: true,
+    ...getWindowsShellExecutionOptions(),
+  });
+
+  const shimPath = path.join(installDir, 'node_modules', '.bin', getNpxPackageBinaryName(npxPackage));
+  if (!existsSync(shimPath)) {
+    throw new Error(`Installed ACP bridge shim not found: ${shimPath}`);
+  }
+
+  return shimPath;
+}
 
 // ── Environment helpers ─────────────────────────────────────────────
 
@@ -159,19 +238,18 @@ export function createGenericSpawnConfig(
   let spawnArgs: string[];
 
   if (cliPath.startsWith('npx ')) {
-    // For "npx @package/name [extra-args]", split into command and arguments
+    // For "npx @package/name [extra-args]", split into command and arguments.
+    // On Windows, normalize the resolved npx path so shell:true does not break
+    // when Node/npm is installed under a path with spaces.
     const parts = cliPath.split(' ').filter(Boolean);
-    spawnCommand = resolveNpxPath(env);
+    const resolvedNpx = resolveNpxPath(env);
+    spawnCommand = isWindows ? createWindowsShellCommand(resolvedNpx, env) : resolvedNpx;
     spawnArgs = [...parts.slice(1), ...effectiveAcpArgs];
   } else if (isWindows) {
-    // On Windows with shell: true, let cmd.exe handle the full command string.
-    // This correctly supports paths with spaces (e.g., "C:\Program Files\agent.exe")
-    // and commands with inline args (e.g., "goose acp" or "node path/to/file.js").
-    //
-    // chcp 65001: switch console to UTF-8 so stderr/stdout doesn't get garbled
-    // (Chinese Windows defaults to CP936/GBK).
-    // Quotes around cliPath handle paths with spaces (e.g. "C:\Program Files\agent.exe").
-    spawnCommand = `chcp 65001 >nul && "${cliPath}"`;
+    // Windows shell parsing breaks when shell:true is combined with an absolute
+    // executable path containing spaces (e.g. C:\Program Files\nodejs\npx.cmd).
+    // Normalize absolute paths into PATH + bare command form before spawning.
+    spawnCommand = createWindowsShellCommand(cliPath, env);
     spawnArgs = effectiveAcpArgs;
   } else {
     // Unix: simple command or path. If cliPath contains spaces (e.g., "goose acp"),
@@ -212,7 +290,7 @@ export type NpxPrepareResult = {
  * Spawn an npx-based ACP backend package.
  * Used by Claude, Codex, and CodeBuddy connectors.
  */
-export function spawnNpxBackend(
+export async function spawnNpxBackend(
   backend: string,
   npxPackage: string,
   npxCommand: string,
@@ -221,21 +299,29 @@ export function spawnNpxBackend(
   isWindows: boolean,
   preferOffline: boolean,
   { extraArgs = [], detached = false }: { extraArgs?: string[]; detached?: boolean } = {}
-): SpawnResult {
-  const spawnArgs = ['--yes', ...(preferOffline ? ['--prefer-offline'] : []), npxPackage, ...extraArgs];
-
+): Promise<SpawnResult> {
   const spawnStart = Date.now();
-  // detached: true creates a new session (setsid) so the child has no controlling terminal.
-  // Required for backends (e.g. CodeBuddy) that write to /dev/tty — without it, SIGTTOU
-  // would suspend the entire Electron process group and freeze the UI.
-  // On Windows, prefix with chcp 65001 to switch console to UTF-8, preventing GBK garbling.
-  const effectiveCommand = isWindows ? `chcp 65001 >nul && "${npxCommand}"` : npxCommand;
-  const child = spawn(effectiveCommand, spawnArgs, {
+
+  let command: string;
+  let spawnArgs: string[];
+  let shell = isWindows;
+
+  if (isWindows) {
+    const shimPath = await installWindowsNpxBridge(backend, npxPackage, npxCommand, cleanEnv, preferOffline);
+    command = createWindowsShellCommand(shimPath, cleanEnv);
+    spawnArgs = extraArgs;
+  } else {
+    command = npxCommand;
+    spawnArgs = ['--yes', ...(preferOffline ? ['--prefer-offline'] : []), npxPackage, ...extraArgs];
+  }
+
+  const child = spawn(command, spawnArgs, {
     cwd: workingDir,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: cleanEnv,
-    shell: isWindows,
+    shell,
     detached,
+    windowsHide: isWindows,
   });
   // Prevent the detached child from keeping the parent alive when the parent wants to exit normally.
   if (detached) {
@@ -351,7 +437,10 @@ export async function spawnGenericBackend(
 
   const spawnStart = Date.now();
   const config = createGenericSpawnConfig(cliPath, workingDir, acpArgs, undefined, cleanEnv as Record<string, string>);
-  const child = spawn(config.command, config.args, config.options);
+  const child = spawn(config.command, config.args, {
+    ...config.options,
+    windowsHide: process.platform === 'win32',
+  });
   if (ACP_PERF_LOG) console.log(`[ACP-PERF] connect: ${backend} process spawned ${Date.now() - spawnStart}ms`);
 
   return { child, isDetached: false };
@@ -396,7 +485,7 @@ async function connectNpxBackend(config: {
 
   // Phase 1: Try with --prefer-offline for fast startup
   try {
-    await setup(spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, true, opts));
+    await setup(await spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, true, opts));
   } catch (firstError) {
     // Phase 2: Retry without --prefer-offline to refresh stale cache
     console.warn(
@@ -406,7 +495,7 @@ async function connectNpxBackend(config: {
 
     await cleanup();
 
-    await setup(spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, false, opts));
+    await setup(await spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, false, opts));
   }
 }
 

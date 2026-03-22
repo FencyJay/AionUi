@@ -33,6 +33,7 @@ import {
   connectClaude,
   connectCodebuddy,
   connectCodex,
+  normalizeWindowsShellCommand,
   prepareCleanEnv,
   spawnGenericBackend,
 } from './acpConnectors';
@@ -155,7 +156,8 @@ export class AcpConnection {
           const npmPath = resolveNpxPath(cleanEnv)
             .replace(/npx$/, 'npm')
             .replace(/npx\.cmd$/, 'npm.cmd');
-          await execFile(npmPath, ['cache', 'clean', '--force'], {
+          const npmCommand = process.platform === 'win32' ? normalizeWindowsShellCommand(npmPath, cleanEnv) : npmPath;
+          await execFile(npmCommand, ['cache', 'clean', '--force'], {
             env: cleanEnv,
             timeout: 30000,
             ...getWindowsShellExecutionOptions(),
