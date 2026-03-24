@@ -6,13 +6,93 @@
 
 import type { ChildProcess } from 'child_process';
 import { execFile as execFileCb } from 'child_process';
-import { promisify } from 'util';
+import { TextDecoder } from 'util';
 import * as fs from 'fs';
 import { promises as fsAsync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-const execFile = promisify(execFileCb);
+type BufferedExecFileError = Error & {
+  code?: number | string | null;
+  stdout?: Buffer | string;
+  stderr?: Buffer | string;
+};
+
+const countReplacementChars = (value: string): number => value.split('\uFFFD').length - 1;
+
+const decodeWindowsCommandOutput = (output?: Buffer | string): string => {
+  if (!output) {
+    return '';
+  }
+
+  if (typeof output === 'string') {
+    return output;
+  }
+
+  const utf8Text = output.toString('utf8');
+  if (process.platform !== 'win32' || !utf8Text.includes('\uFFFD')) {
+    return utf8Text;
+  }
+
+  try {
+    const gbkText = new TextDecoder('gbk').decode(output);
+    return countReplacementChars(gbkText) < countReplacementChars(utf8Text) ? gbkText : utf8Text;
+  } catch {
+    return utf8Text;
+  }
+};
+
+const execFileBuffered = (
+  file: string,
+  args: string[],
+  options: {
+    windowsHide?: boolean;
+    timeout?: number;
+  }
+): Promise<{ stdout: Buffer; stderr: Buffer }> => {
+  return new Promise((resolve, reject) => {
+    execFileCb(file, args, { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
+      const stdoutBuffer = Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout ?? '');
+      const stderrBuffer = Buffer.isBuffer(stderr) ? stderr : Buffer.from(stderr ?? '');
+
+      if (error) {
+        const bufferedError = error as BufferedExecFileError;
+        bufferedError.stdout = stdoutBuffer;
+        bufferedError.stderr = stderrBuffer;
+        reject(bufferedError);
+        return;
+      }
+
+      resolve({ stdout: stdoutBuffer, stderr: stderrBuffer });
+    });
+  });
+};
+
+const formatExecFileFailure = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const execError = error as BufferedExecFileError;
+  const stderrText = decodeWindowsCommandOutput(execError.stderr).trimEnd();
+  const stdoutText = decodeWindowsCommandOutput(execError.stdout).trimEnd();
+  const message = !error.message.includes('\uFFFD') ? error.message.trim() : '';
+  const outputText = stderrText || stdoutText;
+
+  if (outputText) {
+    const exitCode =
+      execError.code === undefined || execError.code === null || execError.code === ''
+        ? ''
+        : `\n(exit code: ${String(execError.code)})`;
+    return `${outputText}${exitCode}`;
+  }
+
+  if (message) {
+    return message;
+  }
+
+  return `exit code: ${String(execError.code ?? 'unknown')}`;
+};
 
 // ── Process utilities ───────────────────────────────────────────────
 
@@ -45,9 +125,9 @@ export async function killChild(child: ChildProcess, isDetached: boolean): Promi
   const pid = child.pid;
   if (process.platform === 'win32' && pid) {
     try {
-      await execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 });
+      await execFileBuffered('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 });
     } catch (forceError) {
-      console.warn(`[ACP] taskkill /T /F failed for PID ${pid}:`, forceError);
+      console.warn(`[ACP] taskkill /T /F failed for PID ${pid}: ${formatExecFileFailure(forceError)}`);
     }
   } else if (isDetached && pid) {
     try {

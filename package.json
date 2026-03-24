@@ -220,7 +220,8 @@
     "electronVersion": "^37.3.1"
   },
   "patchedDependencies": {
-    "7zip-bin@5.2.0": "patches/7zip-bin@5.2.0.patch"
+    "7zip-bin@5.2.0": "patches/7zip-bin@5.2.0.patch",
+    "@office-ai/aioncli-core@0.30.0": "patches/@office-ai__aioncli-core@0.30.0.patch"
   },
   "productName": "AionUi"
 }

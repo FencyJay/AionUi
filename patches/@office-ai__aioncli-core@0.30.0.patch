@@ -1,0 +1,35 @@
+diff --git a/dist/src/tools/mcp-tool.js b/dist/src/tools/mcp-tool.js
+index 6f39d0d..1b52fa2 100644
+--- a/dist/src/tools/mcp-tool.js
++++ b/dist/src/tools/mcp-tool.js
+@@ -168,7 +168,7 @@ export class DiscoveredMCPTool extends BaseDeclarativeTool {
+     }
+     getFullyQualifiedPrefix() {
+-        return `${this.serverName}${MCP_QUALIFIED_NAME_SEPARATOR}`;
++        return `${generateValidName(this.serverName)}${MCP_QUALIFIED_NAME_SEPARATOR}`;
+     }
+     getFullyQualifiedName() {
+         return `${this.getFullyQualifiedPrefix()}${generateValidName(this.serverToolName)}`;
+@@ -291,12 +291,14 @@ function getStringifiedResultForDisplay(rawResponseParts) {
+ }
+ /** Visible for testing */
+ export function generateValidName(name) {
+-    // Replace invalid characters (based on 400 error message from Gemini API) with underscores
+-    let validToolname = name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+-    // If longer than 63 characters, replace middle with '___'
+-    // (Gemini API says max length 64, but actual limit seems to be 63)
+-    if (validToolname.length > 63) {
++    // Replace invalid characters (based on 400 error message from Gemini API) with underscores
++    let validToolname = name.replace(/[^a-zA-Z0-9_.:-]/g, '_');
++    // Gemini requires the first character to be a letter or underscore
++    if (!/^[a-zA-Z_]/.test(validToolname)) {
++        validToolname = `_${validToolname}`;
++    }
++    // If longer than 128 characters, replace the middle with '___'
++    if (validToolname.length > 128) {
+         validToolname =
+-            validToolname.slice(0, 28) + '___' + validToolname.slice(-32);
++            validToolname.slice(0, 62) + '___' + validToolname.slice(-63);
+     }
+     return validToolname;
+ }
