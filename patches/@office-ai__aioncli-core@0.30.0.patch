@@ -2,9 +2,11 @@ diff --git a/dist/src/tools/mcp-tool.js b/dist/src/tools/mcp-tool.js
 index 6f39d0d..1b52fa2 100644
 --- a/dist/src/tools/mcp-tool.js
 +++ b/dist/src/tools/mcp-tool.js
-@@ -168,7 +168,7 @@ export class DiscoveredMCPTool extends BaseDeclarativeTool {
+@@ -168,7 +168,9 @@ export class DiscoveredMCPTool extends BaseDeclarativeTool {
      }
      getFullyQualifiedPrefix() {
++        // 中文：临时方案——这是对 @office-ai/aioncli-core 0.30.0 编译产物的下游补丁，请尽快提交上游 PR，并在升级到包含修复的版本后移除此 patch。
++        // English: Temporary workaround — this is a downstream patch against the compiled output of @office-ai/aioncli-core 0.30.0. Please upstream the fix and remove this patch after upgrading to a fixed release.
 -        return `${this.serverName}${MCP_QUALIFIED_NAME_SEPARATOR}`;
 +        return `${generateValidName(this.serverName)}${MCP_QUALIFIED_NAME_SEPARATOR}`;
      }
