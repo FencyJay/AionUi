@@ -67,7 +67,11 @@
     "pinFailed": "Pin operation failed",
     "pinnedSection": "Pinned",
     "deleteSuccess": "刪除成功",
-    "deleteFailed": "刪除失敗"
+    "deleteFailed": "刪除失敗",
+    "today": "今天",
+    "yesterday": "昨天",
+    "recent7Days": "最近7天",
+    "earlier": "更早"
   },
   "historySearch": {
     "tooltip": "搜尋訊息",
@@ -293,11 +297,5 @@
   "thinking": {
     "complete": "思考完成",
     "label": "思考中..."
-  },
-  "history": {
-    "today": "今天",
-    "yesterday": "昨天",
-    "recent7Days": "最近7天",
-    "earlier": "更早"
   }
 }

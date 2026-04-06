@@ -67,7 +67,11 @@
     "pinFailed": "Pin operation failed",
     "pinnedSection": "Pinned",
     "deleteSuccess": "削除しました",
-    "deleteFailed": "削除に失敗しました"
+    "deleteFailed": "削除に失敗しました",
+    "today": "今日",
+    "yesterday": "昨日",
+    "recent7Days": "過去7日間",
+    "earlier": "それ以前"
   },
   "historySearch": {
     "tooltip": "メッセージを検索",
@@ -293,11 +297,5 @@
   "thinking": {
     "complete": "思考完了",
     "label": "思考中..."
-  },
-  "history": {
-    "today": "今日",
-    "yesterday": "昨日",
-    "recent7Days": "過去7日間",
-    "earlier": "それ以前"
   }
 }

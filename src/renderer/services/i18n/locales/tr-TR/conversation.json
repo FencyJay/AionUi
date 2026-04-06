@@ -67,7 +67,11 @@
     "pinFailed": "Pin operation failed",
     "pinnedSection": "Pinned",
     "deleteSuccess": "Başarıyla silindi",
-    "deleteFailed": "Silme başarısız oldu"
+    "deleteFailed": "Silme başarısız oldu",
+    "today": "Bugün",
+    "yesterday": "Dün",
+    "recent7Days": "Son 7 Gün",
+    "earlier": "Daha Eski"
   },
   "historySearch": {
     "tooltip": "Mesajları ara",
@@ -295,11 +299,5 @@
   "thinking": {
     "complete": "Düşünme tamamlandı",
     "label": "Düşünüyor..."
-  },
-  "history": {
-    "today": "Bugün",
-    "yesterday": "Dün",
-    "recent7Days": "Son 7 Gün",
-    "earlier": "Daha Eski"
   }
 }
