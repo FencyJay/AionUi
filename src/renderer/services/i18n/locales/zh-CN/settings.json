@@ -806,5 +806,16 @@
     "pendingTimeout": "审批请求已过期（5 分钟）。请重试。",
     "pendingCancel": "取消",
     "pendingTimeRemaining": "剩余时间：{{time}}"
+  },
+  "weixin": {
+    "loginRequired": "请先使用微信扫码登录"
+  },
+  "noExternalSources": "未发现外部技能源",
+  "aionrs": {
+    "available": "可用",
+    "notFound": "未找到",
+    "version": "版本",
+    "path": "路径",
+    "providerNote": "服务商和 API 密钥设置在模型页面管理。Aion CLI 支持：Anthropic、OpenAI、AWS Bedrock。"
   }
 }

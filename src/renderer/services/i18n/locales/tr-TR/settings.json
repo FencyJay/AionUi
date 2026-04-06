@@ -805,5 +805,16 @@
     "pendingTimeout": "Onay isteği süresi doldu (5 dakika). Lütfen tekrar deneyin.",
     "pendingCancel": "İptal",
     "pendingTimeRemaining": "Kalan süre: {{time}}"
+  },
+  "weixin": {
+    "loginRequired": "Lütfen önce WeChat QR kodu ile giriş yapın"
+  },
+  "noExternalSources": "Harici beceri kaynağı bulunamadı",
+  "aionrs": {
+    "available": "Mevcut",
+    "notFound": "Bulunamadı",
+    "version": "Sürüm",
+    "path": "Yol",
+    "providerNote": "Sağlayıcı ve API anahtarı ayarları Modeller sayfasında yönetilir. Aion CLI destekler: Anthropic, OpenAI, AWS Bedrock."
   }
 }

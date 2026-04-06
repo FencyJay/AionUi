@@ -807,5 +807,16 @@
     "pendingTimeout": "審批請求已過期（5 分鐘）。請重試。",
     "pendingCancel": "取消",
     "pendingTimeRemaining": "剩餘時間：{{time}}"
+  },
+  "weixin": {
+    "loginRequired": "請先使用微信掃碼登入"
+  },
+  "noExternalSources": "未發現外部技能來源",
+  "aionrs": {
+    "available": "可用",
+    "notFound": "未找到",
+    "version": "版本",
+    "path": "路徑",
+    "providerNote": "服務商和 API 金鑰設定在模型頁面管理。Aion CLI 支援：Anthropic、OpenAI、AWS Bedrock。"
   }
 }
