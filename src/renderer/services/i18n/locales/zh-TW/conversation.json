@@ -25,7 +25,7 @@
     "recents": "最近",
     "today": "今天",
     "yesterday": "昨天",
-    "recent7Days": "近7天",
+    "recent7Days": "最近7天",
     "earlier": "更早",
     "noHistory": "暫無對話記錄",
     "deleteTitle": "刪除",
@@ -67,11 +67,7 @@
     "pinFailed": "Pin operation failed",
     "pinnedSection": "Pinned",
     "deleteSuccess": "刪除成功",
-    "deleteFailed": "刪除失敗",
-    "today": "今天",
-    "yesterday": "昨天",
-    "recent7Days": "最近7天",
-    "earlier": "更早"
+    "deleteFailed": "刪除失敗"
   },
   "historySearch": {
     "tooltip": "搜尋訊息",

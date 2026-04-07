@@ -26,7 +26,7 @@
     "today": "Bugün",
     "yesterday": "Dün",
     "recent7Days": "Son 7 Gün",
-    "earlier": "Daha Önce",
+    "earlier": "Daha Eski",
     "noHistory": "Sohbet geçmişi yok",
     "deleteTitle": "Sil",
     "deleteConfirm": "Bu sohbeti silmek istediğinizden emin misiniz?",
@@ -67,11 +67,7 @@
     "pinFailed": "Pin operation failed",
     "pinnedSection": "Pinned",
     "deleteSuccess": "Başarıyla silindi",
-    "deleteFailed": "Silme başarısız oldu",
-    "today": "Bugün",
-    "yesterday": "Dün",
-    "recent7Days": "Son 7 Gün",
-    "earlier": "Daha Eski"
+    "deleteFailed": "Silme başarısız oldu"
   },
   "historySearch": {
     "tooltip": "Mesajları ara",
